@@ -1,4 +1,4 @@
-﻿using CustomizePlus.Core.Data;
+using CustomizePlus.Core.Data;
 using CustomizePlus.GameData.Extensions;
 using CustomizePlus.Profiles.Data;
 using CustomizePlus.Templates.Data;
@@ -160,10 +160,60 @@ public unsafe class Armature
             : $"Armature (#{_localId}) on {ActorIdentifier.IncognitoDebug()} ({Profile}) with no skeleton reference";
     }
 
+    /// <summary>
+    /// Identity of the in-game skeleton this armature was built from: the CharacterBase and Skeleton
+    /// pointers plus each partial's havok skeleton pointer (null while its .sklb is still loading).
+    /// A redraw, a partial skeleton swap or a late-loading modded .sklb changes one of these even when
+    /// the bone counts happen to match, which the count checks below cannot see.
+    /// </summary>
+    private nint _builtCharacterBase;
+    private nint _builtSkeleton;
+    private nint[] _builtPartialSkeletons = Array.Empty<nint>();
+
+    private static nint PartialHavokSkeleton(CharacterBase* cBase, int partialIndex)
+    {
+        var pose = cBase->Skeleton->PartialSkeletons[partialIndex].GetHavokPose(Constants.TruePoseIndex);
+        return pose == null ? nint.Zero : (nint)pose->Skeleton;
+    }
+
+    /// <summary>
+    /// Cheap per-frame check: a few pointer compares per partial skeleton, no allocations.
+    /// </summary>
+    private bool IsSkeletonIdentityChanged(CharacterBase* cBase)
+    {
+        if ((nint)cBase != _builtCharacterBase || (nint)cBase->Skeleton != _builtSkeleton)
+            return true;
+
+        var count = cBase->Skeleton->PartialSkeletonCount;
+        if (count != _builtPartialSkeletons.Length)
+            return true;
+
+        for (var i = 0; i < count; ++i)
+        {
+            if (PartialHavokSkeleton(cBase, i) != _builtPartialSkeletons[i])
+                return true;
+        }
+
+        return false;
+    }
+
+    private void RecordSkeletonIdentity(CharacterBase* cBase)
+    {
+        _builtCharacterBase = (nint)cBase;
+        _builtSkeleton = (nint)cBase->Skeleton;
+        var count = cBase->Skeleton->PartialSkeletonCount;
+        if (_builtPartialSkeletons.Length != count)
+            _builtPartialSkeletons = new nint[count];
+        for (var i = 0; i < count; ++i)
+            _builtPartialSkeletons[i] = PartialHavokSkeleton(cBase, i);
+    }
+
     public bool IsSkeletonUpdated(CharacterBase* cBase)
     {
-        if (cBase == null)
+        if (cBase == null || cBase->Skeleton == null)
             return false;
+        else if (IsSkeletonIdentityChanged(cBase))
+            return true;
         else if (cBase->Skeleton->PartialSkeletonCount != _partialSkeletons.Length)
             return true;
         else
@@ -226,10 +276,11 @@ public unsafe class Armature
     /// </summary>
     public void RebuildSkeleton(CharacterBase* cBase)
     {
-        if (cBase == null)
+        if (cBase == null || cBase->Skeleton == null)
             return;
 
         var newPartials = ParseBonesFromObject(this, cBase);
+        RecordSkeletonIdentity(cBase);
 
         _partialSkeletons = newPartials.Select(x => x.ToArray()).ToArray();
 

@@ -2,10 +2,10 @@
   "Author": "Risa and Contributors",
   "Name": "Customize+ (VierAI-fied)",
   "Punchline": "Customize your character beyond FFXIV's limitations. Unofficial VierAI-fied fork (AI generated code).",
-  "Description": "A plugin that allows you to customize your character beyond FFXIV limitations by directly editing bone parameters.\n\nCustomize+ by Risa and Contributors - VierAI-fied\n\nForked from the official Customize+ (https://github.com/Aether-Tools/CustomizePlus).\n\nAI generated code: unofficial build, not supported by the original authors. Do not report issues from this build upstream.\n\nAdded:\n- Nothing new; this fork has fixes and performance changes only\n\nFixed:\n- Mount bones follow the actual rider\n- Mount-owner cache no longer grows over a long session\n- Less per-frame work: bone matching, mount lookups, cleanup",
+  "Description": "A plugin that allows you to customize your character beyond FFXIV limitations by directly editing bone parameters.\n\nCustomize+ by Risa and Contributors - VierAI-fied\n\nForked from the official Customize+ (https://github.com/Aether-Tools/CustomizePlus).\n\nAI generated code: unofficial build, not supported by the original authors. Do not report issues from this build upstream.\n\nAdded:\n- Nothing new; this fork has fixes and performance changes only\n\nFixed:\n- Profiles reapply when the skeleton is replaced (testing build)\n- Temporary profiles reach every matching character (testing build)\n- Characters without a loaded skeleton are skipped safely (testing build)\n- Mount bones follow the actual rider\n- Mount-owner cache no longer grows over a long session\n- Less per-frame work: bone matching, mount lookups, cleanup",
   "InternalName": "CustomizePlus",
   "ApplicableVersion": "any",
-  "AssemblyVersion": "2.2.1.304",
+  "AssemblyVersion": "2.2.1.305",
   "Tags": [
     "Anamnesis",
     "Customization",
@@ -16,6 +16,6 @@
   "IconUrl": "https://raw.githubusercontent.com/VierAI/CustomizePlus/vierai/vierai/icon.png",
   "RepoUrl": "https://github.com/VierAI/CustomizePlus",
   "AcceptsFeedback": false,
-  "Changelog": "Changes from Customize+:\nFixes\n- Mounted characters: the mount's bones follow the character actually riding it, not another character with the same name\n- The mount-owner lookup cache is pruned when armatures go away, so it no longer grows over a long session\n\nPerformance\n- Allocation-free bone name matching in armatures (fewer per-frame allocations)\n- The rider of a mount is cached instead of searched for by name every frame\n- Fewer allocations in the per-frame armature cleanup and render checks\n\nOther\n- Own plugin icon and AI-generated code disclosure\n- Version is the upstream version with its 4th part x100 plus a two-digit fork revision",
+  "Changelog": "Changes from Customize+:\nFixes\n- Armatures rebuild when a character's skeleton is replaced (redraw, partial skeleton swap, modded .sklb loading late), so temporary/IPC profiles reapply instead of half-applying\n- Adding a temporary profile no longer stops at the first character that already has it, so the remaining characters get it too\n- Characters whose skeleton has not loaded yet are skipped safely instead of being read\n- Mounted characters: the mount's bones follow the character actually riding it, not another character with the same name\n- The mount-owner lookup cache is pruned when armatures go away, so it no longer grows over a long session\n\nPerformance\n- Allocation-free bone name matching in armatures (fewer per-frame allocations)\n- The rider of a mount is cached instead of searched for by name every frame\n- Fewer allocations in the per-frame armature cleanup and render checks\n\nOther\n- Own plugin icon and AI-generated code disclosure\n- Version is the upstream version with its 4th part x100 plus a two-digit fork revision",
   "DalamudApiLevel": 15
 }

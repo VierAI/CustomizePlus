@@ -663,7 +663,7 @@ public unsafe sealed class ArmatureManager : IDisposable
                 var armature = Armatures[character];
 
                 if (armature.Profile == profile)
-                    return;
+                    continue;
 
                 armature.UpdateLastSeen();
 
