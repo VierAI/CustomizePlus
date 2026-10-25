@@ -1,3 +1,45 @@
+# Customize+ (VierAI-fied)
+
+> **Disclaimer:** this is an unofficial fork of Customize+. Its changes are AI-generated ("vibe coded"). It is not made, endorsed or supported by the Customize+ team, so please don't ask them for help with it. Use it at your own risk.
+
+## Official Customize+
+
+Links from the original README:
+
+### <center>[FAQ](https://github.com/Aether-Tools/CustomizePlus/blob/main/docs/FAQ.md) | [Support Discord](https://discord.gg/KvGJCCnG8t) | [Contributing](https://github.com/Aether-Tools/CustomizePlus/blob/main/docs/CONTRIBUTING.md) | [Changelog for external tool developers](https://github.com/Aether-Tools/CustomizePlus/blob/main/docs/DEVELOPER_CHANGELOG.md)</center>
+
+Add [Aether Tools](https://github.com/Aether-Tools/DalamudPlugins) or [Sea of Stars](https://github.com/Ottermandias/SeaOfStars) dalamud repository by following instructions on the respective pages. 
+
+Original source: [Aether-Tools/CustomizePlus](https://github.com/Aether-Tools/CustomizePlus)
+
+## What this fork changes
+
+Full list: [CHANGELOG.md](CHANGELOG.md)
+
+- **Skeleton swaps (testing build):** armatures rebuild when the skeleton is replaced, so temporary/IPC profiles reapply instead of half-applying.
+- **Fixes:** temporary profiles no longer stop early; mount bones follow the actual rider; the mount-owner cache is pruned.
+- **Performance:** allocation-free bone name matching, cached mount rider lookup, fewer per-frame allocations.
+
+## Installing this fork
+
+Add this custom plugin repository in Dalamud (`/xlsettings` > Experimental > Custom Plugin Repositories), then install it from `/xlplugins`:
+
+`https://raw.githubusercontent.com/VierAI/DalamudPlugins/main/vierai.json`
+
+## For the Customize+ team
+
+If the original Customize+ authors would like any of these changes sent back upstream as pull requests, please open an issue on this repository or contact the fork maintainer, and we'll gladly prepare them.
+
+## Licence and credits
+
+This fork keeps the original licence, Apache License 2.0 (see [LICENSE.md](LICENSE.md)), and all original credits. See [MODIFICATIONS.md](MODIFICATIONS.md) for the list of changed files.
+
+The original README follows unchanged.
+
+---
+
+## Original README
+
 # Customize+
 Customize+ is a Dalamud plugin designed to give you better control over your Final Fantasy XIV character appearance. Namely it allows you to apply character bone manipulations during gameplay.
 

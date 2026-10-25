@@ -3,6 +3,7 @@ using CustomizePlus.GameData.Extensions;
 using CustomizePlus.Profiles.Data;
 using CustomizePlus.Templates.Data;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
+using FFXIVClientStructs.Havok.Common.Base.Container.String;
 using Penumbra.GameData.Actors;
 
 namespace CustomizePlus.Armatures.Data;
@@ -191,7 +192,7 @@ public unsafe class Armature
 
                     for (var i = 0; i < newPose->Skeleton->Bones.Length; i++)
                     {
-                        if (newPose->Skeleton->Bones[i].Name.String != _partialSkeletons[2][i].BoneName)
+                        if (!HavokNameEquals(newPose->Skeleton->Bones[i].Name, _partialSkeletons[2][i].BoneName))
                             return true;
                     }
                 }
@@ -199,6 +200,25 @@ public unsafe class Armature
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Compare a havok bone name without allocating the managed string. Client bone names are ASCII.
+    /// </summary>
+    internal static bool HavokNameEquals(hkStringPtr name, string boneName)
+    {
+        var ptr = (byte*)((ulong)name.StringAndFlag & ~1LU);
+        if (ptr == null)
+            return false;
+
+        for (var i = 0; i < boneName.Length; i++)
+        {
+            var b = ptr[i];
+            if (b == 0 || b != boneName[i])
+                return false;
+        }
+
+        return ptr[boneName.Length] == 0;
     }
 
     /// <summary>

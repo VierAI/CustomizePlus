@@ -37,6 +37,15 @@ public unsafe sealed class ArmatureManager : IDisposable
     /// </summary>
     private readonly bool[] _objectMovementFlagsArr = new bool[1000];
 
+    private readonly Dictionary<ActorIdentifier, MountOwnerCache> _mountOwnerCache = new();
+
+    private struct MountOwnerCache
+    {
+        public nint Child;
+        public ActorIdentifier Ident;
+        public Actor Owner;
+    }
+
     public Dictionary<ActorIdentifier, Armature> Armatures { get; private set; } = new();
 
     public ArmatureManager(
@@ -74,6 +83,7 @@ public unsafe sealed class ArmatureManager : IDisposable
     {
         _templateChangedEvent.Unsubscribe(OnTemplateChange);
         _profileChangedEvent.Unsubscribe(OnProfileChange);
+        _mountOwnerCache.Clear();
     }
 
     /// <summary>
@@ -123,7 +133,8 @@ public unsafe sealed class ArmatureManager : IDisposable
     {
         var currentTime = DateTime.UtcNow;
         var armatureExpirationDateTime = currentTime.AddSeconds(-30);
-        foreach (var kvPair in Armatures.ToList())
+        List<ActorIdentifier>? expired = null;
+        foreach (var kvPair in Armatures)
         {
             var armature = kvPair.Value;
             //Only remove armatures which haven't been seen for a while
@@ -132,7 +143,8 @@ public unsafe sealed class ArmatureManager : IDisposable
                 (armature.LastSeen <= armatureExpirationDateTime || armature.ActorIdentifier.Type == IdentifierType.Special))
             {
                 _logger.Debug($"Removing armature {armature} because {kvPair.Key.IncognitoDebug()} is gone");
-                RemoveArmature(armature, ArmatureChanged.DeletionReason.Gone);
+                expired ??= new List<ActorIdentifier>();
+                expired.Add(kvPair.Key);
 
                 continue;
             }
@@ -141,13 +153,35 @@ public unsafe sealed class ArmatureManager : IDisposable
             armature.IsVisible = armature.LastSeen.AddSeconds(1) >= currentTime;
         }
 
+        if (expired != null)
+        {
+            foreach (var key in expired)
+            {
+                if (Armatures.TryGetValue(key, out var armature))
+                    RemoveArmature(armature, ArmatureChanged.DeletionReason.Gone);
+            }
+        }
+
+        // Drop mount-owner entries whose armature is gone (despawned, zone change, profile removed),
+        // so the cache can't grow without bound or point at a reused object slot.
+        if (_mountOwnerCache.Count > 0)
+        {
+            List<ActorIdentifier>? staleMounts = null;
+            foreach (var key in _mountOwnerCache.Keys)
+                if (!Armatures.ContainsKey(key))
+                    (staleMounts ??= new List<ActorIdentifier>()).Add(key);
+            if (staleMounts != null)
+                foreach (var key in staleMounts)
+                    _mountOwnerCache.Remove(key);
+        }
+
         foreach (var obj in _objectManager)
         {
             var actorIdentifier = obj.Key.CreatePermanent();
 
             //warn: in cutscenes the game creates a copy of your character and object #0,
             //so we need to check if there is at least one object being rendered
-            if (obj.Value.Objects == null || obj.Value.Objects.Count == 0 || !obj.Value.Objects.Any(x => x.IsRenderedByGame()))
+            if (!AnyRendered(obj.Value.Objects))
                 continue;
 
             if (!Armatures.ContainsKey(actorIdentifier))
@@ -301,8 +335,32 @@ public unsafe sealed class ArmatureManager : IDisposable
         Armature? mountOwnerArmature = null;
         if (isMount)
         {
-            (var ident, mountOwner) = _gameObjectService.FindActorsByName(actorIdentifier.PlayerName.ToString()).FirstOrDefault();
-            Armatures.TryGetValue(ident, out mountOwnerArmature);
+            var child = cBase == null ? nint.Zero : (nint)cBase->DrawObject.Object.ChildObject;
+            if (_mountOwnerCache.TryGetValue(actorIdentifier, out var cached)
+                && cached.Child == child
+                && child != nint.Zero
+                && cached.Owner.Valid
+                && (nint)cached.Owner.Model == child)
+            {
+                mountOwner = cached.Owner;
+                Armatures.TryGetValue(cached.Ident, out mountOwnerArmature);
+            }
+            else
+            {
+                var found = _gameObjectService.FindActorsByName(actorIdentifier.PlayerName.ToString()).FirstOrDefault();
+                var owner = found.Item2;
+                if (owner.Address != nint.Zero && child != nint.Zero && (nint)owner.Model == child)
+                {
+                    _mountOwnerCache[actorIdentifier] = new MountOwnerCache
+                    {
+                        Child = child,
+                        Ident = found.Item1,
+                        Owner = owner,
+                    };
+                    mountOwner = owner;
+                    Armatures.TryGetValue(found.Item1, out mountOwnerArmature);
+                }
+            }
         }
 
         if (cBase != null)
@@ -316,8 +374,8 @@ public unsafe sealed class ArmatureManager : IDisposable
                     for (var boneIndex = 0; boneIndex < currentPose->Skeleton->Bones.Length; ++boneIndex)
                     {
                         if (armature.GetBoneAt(pSkeleIndex, boneIndex) is ModelBone mb
-                            && mb != null
-                            && mb.BoneName == currentPose->Skeleton->Bones[boneIndex].Name.String)
+                            && mb.IsActive
+                            && Armature.HavokNameEquals(currentPose->Skeleton->Bones[boneIndex].Name, mb.BoneName))
                         {
                             if (mb == armature.MainRootBone)
                             {
@@ -402,10 +460,25 @@ public unsafe sealed class ArmatureManager : IDisposable
         }
     }
 
+    private static bool AnyRendered(List<Actor>? objects)
+    {
+        if (objects == null || objects.Count == 0)
+            return false;
+
+        for (var i = 0; i < objects.Count; i++)
+        {
+            if (objects[i].IsRenderedByGame())
+                return true;
+        }
+
+        return false;
+    }
+
     private void RemoveArmature(Armature armature, ArmatureChanged.DeletionReason reason)
     {
         armature.Profile.Armatures.Remove(armature);
         Armatures.Remove(armature.ActorIdentifier);
+        _mountOwnerCache.Remove(armature.ActorIdentifier);
         _logger.Debug($"Armature {armature} removed from cache");
 
         _event.Invoke(new ArmatureChanged.Arguments(ArmatureChanged.Type.Deleted, armature, reason));
